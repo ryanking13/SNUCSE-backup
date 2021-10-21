@@ -1,0 +1,589 @@
+options
+{
+  static = true;
+  DEBUG_PARSER = false;
+  IGNORE_CASE = true;
+}
+
+PARSER_BEGIN(SimpleDBMSParser)
+
+public class SimpleDBMSParser
+{
+  public static final int PRINT_SYNTAX_ERROR = 0;
+  public static final int PRINT_CREATE_TABLE = 1;
+  public static final int PRINT_DROP_TABLE = 2;
+  public static final int PRINT_DESC = 3;
+  public static final int PRINT_INSERT = 4;
+  public static final int PRINT_DELETE = 5;
+  public static final int PRINT_SELECT = 6;
+  public static final int PRINT_SHOW_TABLES = 7;
+  
+  public static void main(String args[]) throws ParseException
+  {
+    SimpleDBMSParser parser = new SimpleDBMSParser(System.in);
+    System.out.print("DB_2015-16327> ");
+
+    while (true)
+    {
+      try
+      {
+        parser.command();
+      }
+      catch (Exception e)
+      {
+        printMessage(PRINT_SYNTAX_ERROR);
+        SimpleDBMSParser.ReInit(System.in);
+      }
+    }
+  }
+
+  public static void printMessage(int q)
+  {
+    switch(q)
+    {
+      case PRINT_SYNTAX_ERROR:
+        System.out.println("Syntax error");
+        break;
+      case PRINT_CREATE_TABLE:
+        System.out.println("\'CREATE TABLE\' requested");
+        break;
+      case PRINT_DROP_TABLE:
+        System.out.println("\'DROP TABLE\' requested");
+        break;
+      case PRINT_DESC:
+        System.out.println("\'DESC\' requested");
+        break;
+      case PRINT_INSERT:
+        System.out.println("\'INSERT\' requested");
+        break;
+      case PRINT_DELETE:
+        System.out.println("\'DELETE\' requested");
+        break;
+      case PRINT_SHOW_TABLES:
+        System.out.println("\'SHOW TABLES\' requested");
+        break;
+      case PRINT_SELECT:
+        System.out.println("\'SELECT\' requested");
+        break;
+      
+    }
+    System.out.print("DB_2015-16327> ");
+  }
+}
+
+PARSER_END(SimpleDBMSParser)
+
+SKIP : { " " | "\r" | "\t" | "\n" }
+
+// separated some keywords to prevent them used as a LEGAL_IDENTIFIER
+TOKEN : /* Keywords */
+{
+  < EXIT : "exit" >
+| < INT : "int" >
+| < CHAR : "char" >
+| < DATE : "date" >
+| < CREATE : "create" >
+| < TABLE : "table" >
+//| < CREATE_TABLE : "create table" >
+//| < NOT_NULL : "not null" > 
+| < PRIMARY : "primary" >
+| < FOREIGN : "foreign" >
+| < KEY : "key" >
+//| < PRIMARY_KEY : "primary key" >
+//| < FOREIGN_KEY : "foreign key" >
+| < REFERENCES : "references" >
+| < DROP: "drop" >
+//| < DROP_TABLE: "drop table" >
+| < DESC: "desc" >
+| < SHOW: "show" >
+| < TABLES: "tables" >
+//| < SHOW_TABLES: "show tables" >
+| < SELECT: "select" >
+| < ASTERISK: "*" >
+| < AS: "as" >
+| < FROM: "from" >
+| < WHERE: "where" >
+| < OR: "or" >
+| < AND: "and" >
+| < NOT: "not" >
+| < IS: "is" >
+| < NULL: "null" >
+//| < INSERT: "insert into" >
+| < INSERT: "insert" >
+| < INTO: "into" >
+| < VALUES: "values" >
+//| < DELETE: "delete from" >
+| < DELETE: "delete" >
+}
+
+TOKEN :
+{
+  < SEMICOLON : ";" >
+| < LEFT_PAREN : "(" >
+| < RIGHT_PAREN : ")" >
+| < COMMA : "," >
+| < UNDERSCORE : "_" >
+| < INT_VALUE : (< SIGN >)? (< DIGIT >)+>
+| < SIGN : "+" | "-" >
+| < DIGIT : [ "0"-"9" ] >
+| < LEGAL_IDENTIFIER : < ALPHABET > (< ALPHABET > | < UNDERSCORE >)* >
+| < ALPHABET : [ "a"-"z", "A"-"Z" ] >
+| < QUOTE: "'" >
+| < CHAR_STRING : < QUOTE > (< NON_QUOTE_CHARACTER >)* < QUOTE >>    
+| < DATE_VALUE : < NNNN > "-" < NN > "-" < NN >>
+| < NNNN : < DIGIT > < DIGIT > < DIGIT > < DIGIT >>
+| < NN : < DIGIT > < DIGIT >>
+| < PERIOD : "." >
+| < COMP_OPERATOR : "<" | ">" | "=" | ">=" | "<=" | "!=" >
+// NON_QUOTE_CHARACTER consumes most of tokens, therefore it need to be placed in last order
+| < NON_QUOTE_CHARACTER : < DIGIT > | < ALPHABET > | < NON_QUOTE_SPECIAL_CHARACTERS > | " " >
+| < NON_QUOTE_SPECIAL_CHARACTERS : ~["\"", "'"]>
+}
+
+void command() :
+{}
+{
+  queryList()
+| (
+    < EXIT >
+    < SEMICOLON >
+    {
+      System.exit(0);
+    }
+  ) 
+}
+
+
+void queryList() :
+{
+  int q;
+}
+{
+  (
+    q = query()
+    < SEMICOLON >
+    {
+      printMessage(q);
+    }
+  )+
+}
+
+int query() :
+{
+  int q;
+}
+{  (
+    createTableQuery()
+    {
+      q = PRINT_CREATE_TABLE;
+    }
+  | dropTableQuery()
+	{
+	  q = PRINT_DROP_TABLE;
+	}
+  | descQuery()
+	{
+	  q = PRINT_DESC;
+	}
+  | showTablesQuery()
+	{
+      q = PRINT_SHOW_TABLES;
+	}
+  | selectQuery()
+    {
+      q = PRINT_SELECT;
+    }
+  | insertQuery()
+    {
+      q = PRINT_INSERT;
+    }
+  | deleteQuery()
+    {
+      q = PRINT_DELETE;
+    }
+  )
+  (
+    {
+      return q;
+    }
+  )
+}
+
+/* CREATE TABLE */
+
+void createTableQuery() :
+{}
+{
+//  < CREATE_TABLE >
+  < CREATE >
+  < TABLE >
+  tableName()
+  tableElementList()
+}
+
+void tableElementList() :
+{}
+{
+  < LEFT_PAREN >
+  tableElement()
+  (
+    < COMMA >
+    tableElement()
+  )*
+  < RIGHT_PAREN >
+}
+
+void tableElement() :
+{
+}
+{
+  columnDefinition()
+| tableConstraintDefinition()
+}
+
+void columnDefinition() :
+{}
+{
+  columnName()
+  dataType()
+  (
+//    < NOT_NULL >
+    < NOT >
+    < NULL >
+  )?
+}
+
+void tableConstraintDefinition() :
+{}
+{
+  primaryKeyConstraint()
+| referentialConstraint()
+}
+
+void primaryKeyConstraint() :
+{}
+{
+//  < PRIMARY_KEY >
+  < PRIMARY >
+  < KEY >
+  columnNameList()
+}
+
+void referentialConstraint() :
+{}
+{
+//  < FOREIGN_KEY >
+  < FOREIGN >
+  < KEY >
+  columnNameList()
+  < REFERENCES >
+  tableName()
+  columnNameList()
+}
+
+void columnNameList() :
+{}
+{
+  < LEFT_PAREN >
+  columnName()
+  (
+    < COMMA >
+    columnName()
+  )*
+  < RIGHT_PAREN >
+}
+
+void dataType() :
+{}
+{
+  < INT >
+| (
+    < CHAR >
+    < LEFT_PAREN >
+    < INT_VALUE >
+    < RIGHT_PAREN >
+  )
+| < DATE >
+}
+
+void tableName() :
+{}
+{
+  < LEGAL_IDENTIFIER >
+}
+
+void columnName() :
+{}
+{
+  < LEGAL_IDENTIFIER >
+}
+
+/* DROP TABLE */
+
+void dropTableQuery() :
+{}
+{
+//  < DROP_TABLE >
+  < DROP >
+  < TABLE >
+  tableName()
+}
+
+
+/* DESC */
+
+void descQuery() :
+{}
+{
+  < DESC >
+  tableName()
+}
+
+/* SHOW TABLES */
+void showTablesQuery() :
+{}
+{
+//  < SHOW_TABLES >
+  < SHOW >
+  < TABLES >
+}
+
+/* SELECT */
+
+void selectQuery() :
+{}
+{
+  < SELECT >
+  selectList()
+  tableExpression()
+}
+
+void selectList() :
+{}
+{
+  < ASTERISK >
+| (
+    selectedColumn()
+    (
+      < COMMA >
+      selectedColumn()    )*
+  )
+}
+
+void selectedColumn() :
+{}
+{
+  // LOOKAHEAD is needed since TABLE NAME and COLUMN NAME is both defined as a LEGAL IDENTIFIER
+  (
+    LOOKAHEAD(2)
+    tableName()
+    < PERIOD >  )?
+  columnName()
+  (
+    < AS >
+    columnName()  )?
+}
+
+void tableExpression() :
+{}
+{
+  fromClause()
+  (
+    whereClause()  )?
+}
+
+void fromClause() :
+{}
+{
+  < FROM >
+  tableReferenceList()
+}
+
+void tableReferenceList() :
+{}
+{
+  referedTable()
+  (
+    < COMMA >
+    referedTable()
+  )*
+}
+
+void referedTable() :
+{}
+{
+  tableName()
+  (
+    < AS >
+    tableName()  )?
+}
+
+void whereClause() :
+{}
+{
+  < WHERE >
+  booleanValueExpression()
+}
+
+void booleanValueExpression() :
+{}
+{
+  booleanTerm()
+  (
+    < OR >
+    booleanTerm()  )*
+}
+
+void booleanTerm() :
+{}
+{
+  booleanFactor()
+  (
+    < AND >
+    booleanFactor()
+  )*
+}
+
+void booleanFactor() :
+{}
+{
+  (
+    < NOT >  )?
+  booleanTest()
+}
+
+void booleanTest() :
+{}
+{
+  predicate()
+| parenthesizedBooleanExpression()
+}
+
+void parenthesizedBooleanExpression() :
+{}
+{
+  < LEFT_PAREN >
+  booleanValueExpression()
+  < RIGHT_PAREN >
+}
+
+void predicate() :
+{}
+// LOOKAHEAD is needed since comparisionPredicate and nullPredicate
+// both can start with tableName.ColumnName
+{
+  LOOKAHEAD(4)
+  comparisonPredicate()
+| nullPredicate()
+}
+
+void comparisonPredicate() :
+{}
+{
+  compOperand()
+  compOp()
+  compOperand()
+}
+
+void compOperand() :
+{}
+{
+  comparableValue()
+|
+  // LOOKAHEAD is needed since TABLE NAME and COLUMN NAME is both defined as a LEGAL IDENTIFIER
+  (
+    LOOKAHEAD(2)
+    tableName()
+    < PERIOD >  )?
+  columnName()
+}
+
+void compOp() :
+{}
+{
+  < COMP_OPERATOR >
+}
+
+void comparableValue() :
+{}
+{
+  < INT_VALUE >
+| < CHAR_STRING >
+| < DATE_VALUE >
+}
+
+void nullPredicate() :
+{}
+{
+  // LOOKAHEAD is needed since TABLE NAME and COLUMN NAME is both defined as a LEGAL IDENTIFIER
+  (
+    LOOKAHEAD(2)
+    tableName()
+    < PERIOD >
+  )?
+  columnName()
+  nullOperation()
+}
+
+void nullOperation() :
+{} 
+{
+  < IS >
+  (
+//    <  NOT_NULL >
+    < NOT >
+    < NULL >
+  | < NULL >
+  )
+}
+
+/* INSERT */
+
+void insertQuery() :
+{}
+{
+  < INSERT >
+  < INTO >
+  tableName()
+  insertColumnsAndSource()
+}
+
+void insertColumnsAndSource() :
+{}
+{
+  (
+    columnNameList()  )?
+  valueList()
+}
+
+void valueList() :
+{}
+{
+  < VALUES >
+  < LEFT_PAREN >
+  value()
+  (
+    < COMMA >
+    value()  )*
+  < RIGHT_PAREN >
+}
+
+void value() :
+{}
+{
+  < NULL >
+| comparableValue()
+}
+
+void deleteQuery() :
+{}
+{
+  < DELETE >
+  < FROM >
+  tableName()
+  (
+    whereClause()  )?
+}
+
+
+

@@ -1,0 +1,953 @@
+options
+{
+  static = true;
+  DEBUG_PARSER = false;
+  IGNORE_CASE = true;
+}
+
+PARSER_BEGIN(SimpleDBMSParser)
+
+import java.util.*;
+
+public class SimpleDBMSParser
+{
+  public static final int PRINT_SYNTAX_ERROR = 0;
+  public static final int PRINT_CREATE_TABLE = 1;
+  public static final int PRINT_DROP_TABLE = 2;
+  public static final int PRINT_DESC = 3;
+  public static final int PRINT_INSERT = 4;
+  public static final int PRINT_DELETE = 5;
+  public static final int PRINT_SELECT = 6;
+  public static final int PRINT_SHOW_TABLES = 7;
+
+  public static SimpleDBMSManager manager;
+  
+  public static void main(String args[]) throws ParseException
+  {
+    manager = new SimpleDBMSManager();
+    SimpleDBMSParser parser = new SimpleDBMSParser(System.in);
+    System.out.print("DB_2015-16327> ");
+
+    while (true)
+    {
+      try
+      {
+        parser.command();
+      }
+      catch (Exception e)
+      {
+        printMessage(PRINT_SYNTAX_ERROR);
+        SimpleDBMSParser.ReInit(System.in);
+      }
+    }
+  }
+
+  public static void printMessage(int q)
+  {
+    switch(q)
+    {
+      case PRINT_SYNTAX_ERROR:
+        System.out.println("Syntax error");
+        break;
+//      case PRINT_CREATE_TABLE:
+//        System.out.println("\'CREATE TABLE\' requested");
+//        break;
+//      case PRINT_DROP_TABLE:
+//        System.out.println("\'DROP TABLE\' requested");
+//        break;
+//      case PRINT_DESC:
+//        System.out.println("\'DESC\' requested");
+//        break;
+//      case PRINT_INSERT:
+//        System.out.println("\'INSERT\' requested");
+//        break;
+//      case PRINT_DELETE:
+//        System.out.println("\'DELETE\' requested");
+//        break;
+//      case PRINT_SHOW_TABLES:
+//        System.out.println("\'SHOW TABLES\' requested");
+//        break;
+//      case PRINT_SELECT:
+//        System.out.println("\'SELECT\' requested");
+//        break;
+    }
+    System.out.print("DB_2015-16327> ");
+  }
+}
+
+PARSER_END(SimpleDBMSParser)
+
+SKIP : { " " | "\r" | "\t" | "\n" }
+
+// separated some keywords to prevent them used as a LEGAL_IDENTIFIER
+TOKEN : /* Keywords */
+{
+  < EXIT : "exit" >
+| < INT : "int" >
+| < CHAR : "char" >
+| < DATE : "date" >
+| < CREATE : "create" >
+| < TABLE : "table" >
+//| < CREATE_TABLE : "create table" >
+//| < NOT_NULL : "not null" > 
+| < PRIMARY : "primary" >
+| < FOREIGN : "foreign" >
+| < KEY : "key" >
+//| < PRIMARY_KEY : "primary key" >
+//| < FOREIGN_KEY : "foreign key" >
+| < REFERENCES : "references" >
+| < DROP: "drop" >
+//| < DROP_TABLE: "drop table" >
+| < DESC: "desc" >
+| < SHOW: "show" >
+| < TABLES: "tables" >
+//| < SHOW_TABLES: "show tables" >
+| < SELECT: "select" >
+| < ASTERISK: "*" >
+| < AS: "as" >
+| < FROM: "from" >
+| < WHERE: "where" >
+| < OR: "or" >
+| < AND: "and" >
+| < NOT: "not" >
+| < IS: "is" >
+| < NULL: "null" >
+//| < INSERT: "insert into" >
+| < INSERT: "insert" >
+| < INTO: "into" >
+| < VALUES: "values" >
+//| < DELETE: "delete from" >
+| < DELETE: "delete" >
+}
+
+TOKEN :
+{
+  < SEMICOLON : ";" >
+| < LEFT_PAREN : "(" >
+| < RIGHT_PAREN : ")" >
+| < COMMA : "," >
+| < UNDERSCORE : "_" >
+| < INT_VALUE : (< SIGN >)? (< DIGIT >)+>
+| < SIGN : "+" | "-" >
+| < DIGIT : [ "0"-"9" ] >
+| < LEGAL_IDENTIFIER : < ALPHABET > (< ALPHABET > | < UNDERSCORE >)* >
+| < ALPHABET : [ "a"-"z", "A"-"Z" ] >
+| < QUOTE: "'" >
+| < CHAR_STRING : < QUOTE > (< NON_QUOTE_CHARACTER >)* < QUOTE >>    
+| < DATE_VALUE : < NNNN > "-" < NN > "-" < NN >>
+| < NNNN : < DIGIT > < DIGIT > < DIGIT > < DIGIT >>
+| < NN : < DIGIT > < DIGIT >>
+| < PERIOD : "." >
+| < COMP_OPERATOR : "<" | ">" | "=" | ">=" | "<=" | "!=" >
+// NON_QUOTE_CHARACTER consumes most of tokens, therefore it need to be placed in last order
+| < NON_QUOTE_CHARACTER : < DIGIT > | < ALPHABET > | < NON_QUOTE_SPECIAL_CHARACTERS > | " " >
+| < NON_QUOTE_SPECIAL_CHARACTERS : ~["\"", "'"]>
+}
+
+void command() :
+{}
+{
+  queryList()
+| (
+    < EXIT >
+    < SEMICOLON >
+    {
+      // close DB
+      manager.close();
+      System.exit(0);
+    }
+  ) 
+}
+
+
+void queryList() :
+{
+  int q;
+}
+{
+  (
+    q = query()
+//    < SEMICOLON >
+    {
+      printMessage(q);
+    }
+  )+
+}
+
+int query() :
+{
+  int q;
+}
+{  (
+    createTableQuery()
+    < SEMICOLON >
+    {
+      q = PRINT_CREATE_TABLE;
+    }
+  | dropTableQuery()
+    < SEMICOLON >
+	{
+	  q = PRINT_DROP_TABLE;
+	}
+  | descQuery()
+    < SEMICOLON >
+	{
+	  q = PRINT_DESC;
+	}
+  | showTablesQuery()
+    < SEMICOLON >
+	{
+      q = PRINT_SHOW_TABLES;
+	}
+  | selectQuery()
+    < SEMICOLON >
+    {
+      q = PRINT_SELECT;
+    }
+  | insertQuery()
+    < SEMICOLON >
+    {
+      q = PRINT_INSERT;
+    }
+  | deleteQuery()
+    < SEMICOLON >
+    {
+      q = PRINT_DELETE;
+    }
+  )
+  (
+    {
+      return q;
+    }
+  )
+}
+
+/* CREATE TABLE */
+
+void createTableQuery() :
+{
+  SimpleDBMSSchema schema;
+  String name;
+}
+{
+//  < CREATE_TABLE >
+  < CREATE >
+  < TABLE >
+  name = tableName()
+  {
+    schema = new SimpleDBMSSchema(name);
+  }
+  tableElementList(schema)
+  {
+    try {
+      String tableName = manager.createTable(schema);
+      System.out.println(String.format("'%s' table is created", tableName));
+    } catch (SimpleDBMSException e) {
+      System.out.println(e.getMessage());
+    }
+  }
+}
+
+void tableElementList(SimpleDBMSSchema schema) :
+{}
+{
+  < LEFT_PAREN >
+  tableElement(schema)
+  (
+    < COMMA >
+    tableElement(schema)
+  )*
+  < RIGHT_PAREN >
+}
+
+void tableElement(SimpleDBMSSchema schema) :
+{
+  SimpleDBMSColumn column;
+}
+{
+  column = columnDefinition()
+  {
+    schema.addColumn(column);
+  }
+| tableConstraintDefinition(schema)
+}
+
+SimpleDBMSColumn columnDefinition() :
+{
+  SimpleDBMSColumn column;
+  String name;
+}
+{
+  name = columnName()
+  {
+    column = new SimpleDBMSColumn(name);
+  }
+  dataType(column)
+  (
+//    < NOT_NULL >
+    < NOT >
+    < NULL >
+    {
+      column.setNotNull(true);
+    }
+  )?
+  {
+    return column;
+  }
+}
+
+void tableConstraintDefinition(SimpleDBMSSchema schema) :
+{}
+{
+  primaryKeyConstraint(schema)
+| referentialConstraint(schema)
+}
+
+void primaryKeyConstraint(SimpleDBMSSchema schema) :
+{
+  ArrayList<String> columns;
+}
+{
+//  < PRIMARY_KEY >
+  < PRIMARY >
+  < KEY >
+  columns = columnNameList()
+  {
+    schema.addPrimaryKey(columns);
+  }
+}
+
+void referentialConstraint(SimpleDBMSSchema schema) :
+{
+  ArrayList<String> columns;
+  ArrayList<String> foreignColumns;
+  String foreignTableName;
+}
+{
+//  < FOREIGN_KEY >
+  < FOREIGN >
+  < KEY >
+  columns = columnNameList()
+  < REFERENCES >
+  foreignTableName = tableName()
+  foreignColumns = columnNameList()
+  {
+    schema.addForeignKey(columns, foreignTableName, foreignColumns);
+  }
+}
+
+ArrayList<String> columnNameList() :
+{
+  ArrayList<String> columns;
+  String name;
+}
+{
+  < LEFT_PAREN >
+  {
+    columns = new ArrayList<String>();
+  }
+  name = columnName()
+  {
+    columns.add(name);
+  }
+  (
+    < COMMA >
+    name = columnName()
+    {
+      columns.add(name);
+    }
+  )*
+  < RIGHT_PAREN >
+  {
+    return columns;
+  }
+}
+
+void dataType(SimpleDBMSColumn column) :
+{
+  Token length;
+}
+{
+  < INT >
+  {
+    column.setType("int");
+  }
+| (
+    < CHAR >
+    < LEFT_PAREN >
+    length = < INT_VALUE >
+    < RIGHT_PAREN >
+    {
+      column.setType("char");
+      column.setLength(Integer.parseInt(length.toString()));
+    }
+  )
+| < DATE >
+  {
+    column.setType("date");
+  }
+}
+
+String tableName() :
+{
+  Token name;
+}
+{
+  name = < LEGAL_IDENTIFIER >
+  {
+    return name.toString().toLowerCase();
+  }
+}
+
+String columnName() :
+{
+  Token name;
+}
+{
+  name = < LEGAL_IDENTIFIER >
+  {
+    return name.toString().toLowerCase();
+  }
+}
+
+/* DROP TABLE */
+
+void dropTableQuery() :
+{
+  String name;
+}
+{
+//  < DROP_TABLE >
+  < DROP >
+  < TABLE >
+  name = tableName()
+  {
+    try {
+      String tableName = manager.dropTable(name);
+      System.out.println(String.format("'%s' table is dropped", tableName));
+    } catch (SimpleDBMSException e) {
+      System.out.println(e.getMessage());
+    }
+  }
+}
+
+
+/* DESC */
+
+void descQuery() :
+{
+  String name;
+}
+{
+  < DESC >
+  name = tableName()
+  {
+    try {
+      String tableDesc = manager.desc(name);
+      System.out.println(tableDesc);
+    } catch (SimpleDBMSException e) {
+      System.out.println(e.getMessage());
+    }
+  }
+}
+
+/* SHOW TABLES */
+void showTablesQuery() :
+{}
+{
+//  < SHOW_TABLES >
+  < SHOW >
+  < TABLES >
+  {
+    try {
+      String tableList = manager.showTables();
+      System.out.println(tableList);
+    } catch (SimpleDBMSException e) {
+      System.out.println(e.getMessage());
+    }
+  }
+}
+
+/* SELECT */
+
+void selectQuery() :
+{
+  SimpleDBMSSelectQuery q = new SimpleDBMSSelectQuery();
+}
+{
+  < SELECT >
+  selectList(q)
+  tableExpression(q)
+  {
+    try {
+      String selectResult = manager.select(q);
+      System.out.println(selectResult);
+    } catch (SimpleDBMSException e) {
+      System.out.println(e.getMessage());
+    }    
+  }
+}
+
+void selectList(SimpleDBMSSelectQuery q) :
+{}
+{
+  < ASTERISK >
+  {
+    q.setAsterisk(true);
+  }
+| (
+    selectedColumn(q)
+    (
+      < COMMA >
+      selectedColumn(q)    )*
+  )
+}
+
+void selectedColumn(SimpleDBMSSelectQuery q) :
+{
+  String tbl = null;
+  String col = null;
+  String colAlias = null;
+}
+{
+  // LOOKAHEAD is needed since TABLE NAME and COLUMN NAME is both defined as a LEGAL IDENTIFIER
+  (
+  (
+    LOOKAHEAD(2)
+    tbl = tableName()
+    < PERIOD >  )?
+  col = columnName()
+  (
+    < AS >
+    colAlias = columnName()  )?
+  )
+  {
+    q.setSelection(tbl, col, colAlias);
+  }
+}
+
+void tableExpression(SimpleDBMSSelectQuery q) :
+{
+  PredicateTree t;
+}
+{
+  fromClause(q)
+  (
+    t = whereClause()
+    {
+      q.setWhere(t);
+    }  )?
+}
+
+void fromClause(SimpleDBMSSelectQuery q) :
+{}
+{
+  < FROM >
+  tableReferenceList(q)
+}
+
+void tableReferenceList(SimpleDBMSSelectQuery q) :
+{}
+{
+  referedTable(q)
+  (
+    < COMMA >
+    referedTable(q)
+  )*
+}
+
+void referedTable(SimpleDBMSSelectQuery q) :
+{
+  String tbl = null;
+  String tblAlias = null;
+}
+{
+  (
+  tbl = tableName()
+  (
+    < AS >
+    tblAlias = tableName()  )?
+  )
+  {
+    q.setFrom(tbl, tblAlias);
+  }
+}
+
+PredicateTree whereClause() :
+{
+  PredicateTree t;
+}
+{
+  < WHERE >
+  t = booleanValueExpression()
+  {
+    return t;
+  }
+}
+
+PredicateTree booleanValueExpression() :
+{
+  PredicateTree t = new PredicateTree();
+  PredicateTree cur = t;
+  PredicateTree l;
+  PredicateTree r;
+  PredicateTree rl;
+}
+{
+  (
+  l = booleanTerm()
+  {
+    cur.setLeft(l);
+  }
+  (
+    < OR >
+    rl = booleanTerm()
+    {
+      r = new PredicateTree();
+      r.setJoin(PredicateJoin.AND);
+      r.setLeft(rl);
+      cur.setJoin(PredicateJoin.OR);
+      cur.setRight(r);
+      cur = r;
+    }  )*
+  )
+  {
+    return t;
+  }
+}
+
+PredicateTree booleanTerm() :
+{
+  PredicateTree t = new PredicateTree();
+  PredicateTree cur = t;
+  PredicateTree l;
+  PredicateTree r;
+  PredicateTree rl;
+}
+{
+  (
+  l = booleanFactor()
+  {
+    cur.setLeft(l);
+  }
+  (
+    < AND >
+    rl = booleanFactor()
+    {
+      r = new PredicateTree();
+      r.setJoin(PredicateJoin.AND);
+      r.setLeft(rl);
+      cur.setJoin(PredicateJoin.AND);
+      cur.setRight(r);
+      cur = r;
+    }
+  )*
+  )
+  {
+    return t;
+  }
+}
+
+PredicateTree booleanFactor() :
+{
+  PredicateTree t;
+  boolean not = false;
+}
+{
+  (
+    < NOT >
+    {
+      not = true;
+    }  )?
+  t = booleanTest()
+  {
+    if (not) t.setNot(true);
+    return t;
+  }
+}
+
+PredicateTree booleanTest() :
+{
+  PredicateTree t = new PredicateTree();
+  PredicateElement e;
+  PredicateTree otherT;
+}
+{
+  (
+  e = predicate()
+  {
+    t.setValue(e);
+  }
+| otherT = parenthesizedBooleanExpression()
+  {
+    t = otherT;
+  }
+  )
+  {
+    return t;
+  }
+}
+
+PredicateTree parenthesizedBooleanExpression() :
+{
+  PredicateTree t;
+}
+{
+  < LEFT_PAREN >
+  t = booleanValueExpression()
+  < RIGHT_PAREN >
+  {
+    return t;
+  }
+}
+
+PredicateElement predicate() :
+{
+  PredicateElement p = new PredicateElement();
+}
+// LOOKAHEAD is needed since comparisionPredicate and nullPredicate
+// both can start with tableName.ColumnName
+{
+  (
+  LOOKAHEAD(4)
+  comparisonPredicate(p)
+| nullPredicate(p)
+  )
+  {
+    return p;
+  }
+}
+
+void comparisonPredicate(PredicateElement p) :
+{}
+{
+  compOperand(p, "left")
+  compOp(p)
+  compOperand(p, "right")
+}
+
+void compOperand(PredicateElement p, String pos) :
+{
+  QueryValue q;
+  String table;
+  String column;
+}
+{
+  q = comparableValue()
+  {
+    p.setValue(q, pos);
+  }
+|
+  // LOOKAHEAD is needed since TABLE NAME and COLUMN NAME is both defined as a LEGAL IDENTIFIER
+  (
+    LOOKAHEAD(2)
+    table = tableName()
+    {
+      p.setTable(table, pos);
+    }
+    < PERIOD >  )?
+  column = columnName()
+  {
+    p.setColumn(column, pos);
+  }
+}
+
+void compOp(PredicateElement p) :
+{
+  Token op;
+}
+{
+  op = < COMP_OPERATOR >
+  {
+    p.setOp(op.toString());
+  }
+}
+
+QueryValue comparableValue() :
+{
+  QueryValue q;
+  Token value;
+}
+{
+  (
+  value = < INT_VALUE >
+  {
+    q = new QueryValue("int", value.toString());
+  }
+|
+  value = < CHAR_STRING >
+  {
+    q = new QueryValue("char", value.toString());
+  }
+|
+  value = < DATE_VALUE >
+  {
+    q = new QueryValue("date", value.toString());
+  }
+  )
+  {
+    return q;
+  }
+}
+
+void nullPredicate(PredicateElement p) :
+{
+  String table;
+  String column;
+}
+{
+  // LOOKAHEAD is needed since TABLE NAME and COLUMN NAME is both defined as a LEGAL IDENTIFIER
+  (
+    LOOKAHEAD(2)
+    table = tableName()
+    {
+      p.setNullTable(table);
+    }
+    < PERIOD >
+  )?
+  column = columnName()
+  {
+    p.setNullColumn(column);
+  }
+  nullOperation(p)
+}
+
+void nullOperation(PredicateElement p) :
+{} 
+{
+  < IS >
+  (
+//    <  NOT_NULL >
+    < NOT >
+    < NULL >
+    {
+      p.setNull(false);
+    }
+  | < NULL >
+  {
+    p.setNull(true);
+  }
+  )
+}
+
+/* INSERT */
+
+void insertQuery() :
+{
+  String name;
+  SimpleDBMSInsertQuery query;
+  String row;
+}
+{
+  < INSERT >
+  < INTO >
+  name = tableName()
+  {
+    query = new SimpleDBMSInsertQuery(name);
+  }
+  insertColumnsAndSource(query)
+  {
+    try {
+      manager.insert(query);
+      System.out.println("The row is inserted");
+    } catch (SimpleDBMSException e) {
+      System.out.println(e.getMessage());
+    }
+  }
+}
+
+void insertColumnsAndSource(SimpleDBMSInsertQuery query) :
+{
+  ArrayList<String> columns;
+  ArrayList<QueryValue> values;
+}
+{
+  (
+    columns = columnNameList()
+    {
+      query.setColumns(columns);
+    }  )?
+  values = valueList()
+  {
+    query.setValues(values);
+  }
+}
+
+ArrayList<QueryValue> valueList() :
+{
+  ArrayList<QueryValue> values;
+  QueryValue v;
+}
+{
+  < VALUES >
+  {
+    values = new ArrayList<QueryValue>();
+  }
+  < LEFT_PAREN >
+  v = value()
+  {
+    values.add(v);
+  }
+  (
+    < COMMA >
+    v = value()
+    {
+      values.add(v);
+    }  )*
+  < RIGHT_PAREN >
+  {
+    return values;
+  }
+}
+
+QueryValue value() :
+{
+  QueryValue v;
+}
+{
+  (
+  < NULL >
+  {
+    v = new QueryValue("null", "0");
+  }
+|
+  v = comparableValue()
+  )
+  {
+    return v;
+  }
+}
+
+void deleteQuery() :
+{
+  String name;
+  SimpleDBMSDeleteQuery query;
+  PredicateTree t;
+}
+{
+  (
+  < DELETE >
+  < FROM >
+  name = tableName()
+  {
+    query = new SimpleDBMSDeleteQuery(name);
+  }
+  (
+    t = whereClause()
+    {
+      query.addCondition(t);
+    }  )?
+  )
+  {
+    try {
+      Pair<Integer, Integer> p = manager.delete(query);
+      System.out.println(String.format("%d row(s) are deleted", p.first));
+      if (p.second > 0) System.out.println(String.format("%d row(s) are not deleted due to referential integrity", p.second));
+    } catch (SimpleDBMSException e) {
+      System.out.println(e.getMessage());
+    }
+  }
+}
+
+
+
